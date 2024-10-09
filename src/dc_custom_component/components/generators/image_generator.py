@@ -70,7 +70,7 @@ class DALLEImageGenerator:
                 max_retries=self.max_retries,
             )
 
-    @component.output_types(image=List[str], revised_prompt=str)
+    @component.output_types(images=List[str], revised_prompt=str)
     def run(
         self,
         prompt: str,
