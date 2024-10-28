@@ -1,11 +1,11 @@
 from dc_custom_component.components.generators.image_generator import (
-    DALLEImageGenerator,
+    SebDALLEImageGenerator,
 )
 
 
 class TestDALLEImageGenerator:
     def test_to_dict(self) -> None:
-        generator = DALLEImageGenerator()
+        generator = SebDALLEImageGenerator()
         data = generator.to_dict()
         assert data == {
             "type": "dc_custom_component.components.generators.image_generator.DALLEImageGenerator",
@@ -41,7 +41,7 @@ class TestDALLEImageGenerator:
                 "organization": None,
             },
         }
-        generator = DALLEImageGenerator.from_dict(data)
+        generator = SebDALLEImageGenerator.from_dict(data)
         assert generator.model == "dall-e-3"
         assert generator.quality == "standard"
         assert generator.size == "1024x1024"

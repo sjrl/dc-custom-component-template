@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 @component
-class DALLEImageGenerator:
+class SebDALLEImageGenerator:
     """
     A component to generate images using OpenAI's DALL-E model.
     """

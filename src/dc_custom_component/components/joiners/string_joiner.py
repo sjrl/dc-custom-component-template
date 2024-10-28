@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 @component
-class StringJoiner:
+class SebStringJoiner:
     """
     Component to join strings from different components to a list of strings
     """
