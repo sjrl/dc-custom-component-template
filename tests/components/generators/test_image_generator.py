@@ -8,7 +8,7 @@ class TestDALLEImageGenerator:
         generator = SebDALLEImageGenerator()
         data = generator.to_dict()
         assert data == {
-            "type": "dc_custom_component.components.generators.image_generator.DALLEImageGenerator",
+            "type": "dc_custom_component.components.generators.image_generator.SebDALLEImageGenerator",
             "init_parameters": {
                 "model": "dall-e-3",
                 "quality": "standard",
@@ -26,7 +26,7 @@ class TestDALLEImageGenerator:
 
     def test_from_dict(self) -> None:
         data = {
-            "type": "dc_custom_component.components.generators.image_generator.DALLEImageGenerator",
+            "type": "dc_custom_component.components.generators.image_generator.SebDALLEImageGenerator",
             "init_parameters": {
                 "model": "dall-e-3",
                 "quality": "standard",
