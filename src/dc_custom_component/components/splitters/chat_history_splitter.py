@@ -42,8 +42,9 @@ class SebChatHistorySplitterChatMessages:
         try:
             items = chat_history_and_query.split("\n\nCurrent Question:")
             query = items[-1].strip()
-            history = items[0].split("Chat History: ")[1]
-            history = json.loads(history.strip())
+            history_split = items[0].split("Chat History: ")[1]
+            logger.info(f"Extracted history is {history_split}")
+            history = json.loads(history_split.strip())
         except Exception as e:
             logger.error(f"Error parsing chat history: {e}")
             raise e
