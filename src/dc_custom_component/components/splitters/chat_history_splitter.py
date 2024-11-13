@@ -38,10 +38,16 @@ class SebChatHistorySplitterChatMessages:
                 "Chat History not found in input so returning empty history and treating the input as the query."
             )
             return {"history": [], "query": chat_history_and_query}
-        items = chat_history_and_query.split("\n\nCurrent Question:")
-        query = items[-1].strip()
-        history = items[0].split("Chat History: ")[1]
-        history = json.loads(history)
+
+        try:
+            items = chat_history_and_query.split("\n\nCurrent Question:")
+            query = items[-1].strip()
+            history = items[0].split("Chat History: ")[1]
+            history = json.loads(history.strip())
+        except Exception as e:
+            logger.error(f"Error parsing chat history: {e}")
+            raise e
+
         history_messages = []
         for item in history:
             history_messages.append(ChatMessage(
