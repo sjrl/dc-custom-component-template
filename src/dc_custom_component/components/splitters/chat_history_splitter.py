@@ -1,4 +1,4 @@
-import json
+import ast
 from typing import Dict, List
 
 from haystack import component, logging
@@ -39,12 +39,12 @@ class SebChatHistorySplitterChatMessages:
             )
             return {"history": [], "query": chat_history_and_query}
 
+        items = chat_history_and_query.split("\n\nCurrent Question:")
+        query = items[-1].strip()
+        history_split = items[0].split("Chat History: ")[1]
+        logger.info(f"Extracted history is {history_split}")
         try:
-            items = chat_history_and_query.split("\n\nCurrent Question:")
-            query = items[-1].strip()
-            history_split = items[0].split("Chat History: ")[1]
-            logger.info(f"Extracted history is {history_split}")
-            history = json.loads(history_split.strip())
+            history = ast.literal_eval(history_split.strip())
         except Exception as e:
             logger.error(f"Error parsing chat history: {e}")
             raise e
