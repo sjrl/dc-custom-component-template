@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 class LLMProvider(Enum):
     """
-    Currently LLM providers supported by `TEGLLMMetadataExtractor`.
+    Currently LLM providers supported by `SebLLMMetadataExtractor`.
     """
 
     OPENAI = "openai"
@@ -74,7 +74,7 @@ class SebLLMMetadataExtractor:
 
     ```python
     from haystack import Document
-    from dc_custom_component.extractors.llm_metadata_extractor import TEGLLMMetadataExtractor
+    from dc_custom_component.extractors.llm_metadata_extractor import SebLLMMetadataExtractor
 
     NER_PROMPT = '''
     -Goal-
@@ -120,7 +120,7 @@ class SebLLMMetadataExtractor:
         Document(content="Hugging Face is a company founded in Paris, France and is known for its Transformers library")
     ]
 
-    extractor = TEGLLMMetadataExtractor(
+    extractor = SebLLMMetadataExtractor(
         prompt=NER_PROMPT,
         generator_api="openai",
         generator_api_params={
@@ -165,7 +165,7 @@ class SebLLMMetadataExtractor:
         max_workers: int = 3,
     ):
         """
-        Initializes the TEGLLMMetadataExtractor.
+        Initializes the SebLLMMetadataExtractor.
 
         :param prompt: The prompt to be used for the LLM.
         :param generator_api: The API provider for the LLM. Currently supported providers are:
@@ -264,7 +264,7 @@ class SebLLMMetadataExtractor:
         )
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "TEGLLMMetadataExtractor":
+    def from_dict(cls, data: Dict[str, Any]) -> "SebLLMMetadataExtractor":
         """
         Deserializes the component from a dictionary.
 
