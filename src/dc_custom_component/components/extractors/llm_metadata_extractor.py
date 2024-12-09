@@ -212,18 +212,17 @@ class SebLLMMetadataExtractor:
         Initialize the chat generator based on the specified API provider and parameters.
         """
         if generator_api == LLMProvider.OPENAI:
-            generator_class = OpenAIGenerator
+            return OpenAIGenerator(**generator_api_params)
         elif generator_api == LLMProvider.OPENAI_AZURE:
-            generator_class = AzureOpenAIGenerator(**generator_api_params)
+            return AzureOpenAIGenerator(**generator_api_params)
         elif generator_api == LLMProvider.AWS_BEDROCK:
             amazon_bedrock_generator.check()
-            generator_class = AmazonBedrockGenerator
+            return AmazonBedrockGenerator(**generator_api_params)
         elif generator_api == LLMProvider.GOOGLE_VERTEX:
             vertex_ai_gemini_generator.check()
-            generator_class = VertexAIGeminiGenerator
+            return VertexAIGeminiGenerator(**generator_api_params)
         else:
             raise ValueError(f"Unsupported generator API: {generator_api}")
-        return generator_class(**generator_api_params)
 
     def warm_up(self):
         """
@@ -297,13 +296,13 @@ class SebLLMMetadataExtractor:
         try:
             parsed_metadata = json.loads(llm_answer)
         except json.JSONDecodeError as e:
-            if self.raise_on_failure:
-                raise e
             logger.warning(
                 "Response from the LLM is not valid JSON. Skipping metadata extraction. Received output: {response}",
                 response=llm_answer
             )
-            return {"error": str(e)}
+            if self.raise_on_failure:
+                raise e
+            return {"error": "Response is not valid JSON. Received JSONDecodeError: " + str(e)}
 
         if not all(key in parsed_metadata for key in self.expected_keys):
             logger.warning(
@@ -336,7 +335,7 @@ class SebLLMMetadataExtractor:
                 content = ""
                 for idx, page in enumerate(pages["documents"]):
                     if idx + 1 in expanded_range:
-                        content += page.content + "\f"
+                        content += page.content
                 doc_copy.content = content
             else:
                 doc_copy = document
@@ -349,25 +348,21 @@ class SebLLMMetadataExtractor:
         return all_prompts
 
     def _run_on_thread(self, prompt: Optional[str]) -> Dict[str, Any]:
+        # If prompt is None, return an empty dictionary
         if prompt is None:
-            return {"error": "Document has no content. Skipping metadata extraction."}
+            return {"replies": ["{}"]}
 
         try:
             result = self.llm_provider.run(prompt=prompt)
         except Exception as e:
-            if self.raise_on_failure:
-                logger.error(
-                    "LLM {class_name} failed with exception '{error}'.",
-                    class_name=self.llm_provider.__class__.__name__,
-                    error=e,
-                )
-                raise
-            logger.warning(
-                "LLM {class_name} failed with exception '{error}'.",
+            logger.error(
+                "LLM {class_name} execution failed. Skipping metadata extraction. Failed with exception '{error}'.",
                 class_name=self.llm_provider.__class__.__name__,
                 error=e,
             )
-            result = {"error": str(e)}
+            if self.raise_on_failure:
+                raise e
+            result = {"error": "LLM failed with exception: " + str(e)}
         return result
 
     @component.output_types(documents=List[Document], failed_documents=List[Document])
@@ -422,12 +417,15 @@ class SebLLMMetadataExtractor:
             parsed_metadata = self._extract_metadata(result["replies"][0])
             if "error" in parsed_metadata:
                 document.meta["metadata_extraction_error"] = parsed_metadata["error"]
-                document.meta["metadata_extraction_response"] = result
+                document.meta["metadata_extraction_response"] = result["replies"][0]
                 failed_documents.append(document)
                 continue
 
             for key in parsed_metadata:
                 document.meta[key] = parsed_metadata[key]
+                # Remove metadata_extraction_error and metadata_extraction_response if present from previous runs
+                document.meta.pop("metadata_extraction_error", None)
+                document.meta.pop("metadata_extraction_response", None)
             successful_documents.append(document)
 
         return {"documents": successful_documents, "failed_documents": failed_documents}
