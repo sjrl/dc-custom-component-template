@@ -2,21 +2,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from concurrent.futures import ThreadPoolExecutor
 import copy
 import json
+from concurrent.futures import ThreadPoolExecutor
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-
-from jinja2 import meta
-from jinja2.sandbox import SandboxedEnvironment
 
 from haystack import Document, component, default_from_dict, default_to_dict, logging
 from haystack.components.builders import PromptBuilder
 from haystack.components.generators import AzureOpenAIGenerator, OpenAIGenerator
 from haystack.components.preprocessors import DocumentSplitter
 from haystack.lazy_imports import LazyImport
-from haystack.utils import deserialize_secrets_inplace, deserialize_callable
+from haystack.utils import deserialize_callable, deserialize_secrets_inplace
+from jinja2 import meta
+from jinja2.sandbox import SandboxedEnvironment
 
 from dc_custom_component.utils import expand_page_range
 
@@ -59,18 +58,20 @@ class LLMProvider(Enum):
 
 @component
 class SebLLMMetadataExtractor:
-
-    # Add explanation that failed documents will have metadata_extraction_error and metadata_extraction_response
-    # in their metadata and can be re-run with the extractor to extract metadata. This is useful for debugging
-    # and re-running the extractor on failed documents.
     """
     Extracts metadata from documents using a Large Language Model (LLM) from OpenAI.
 
     The metadata is extracted by providing a prompt to an LLM that generates the metadata.
 
-    This component expects as input a list of documents and a prompt. The prompt should have a variable called 
+    This component expects as input a list of documents and a prompt. The prompt should have a variable called
     `document` that will point to a single document in the list of documents. So to access the content of the document,
     you can use `{{ document.content }}` in the prompt.
+
+    The component will run the LLM on each document in the list and extract metadata from the document. The metadata
+    will be added to the document's metadata field. If the LLM fails to extract metadata from a document, the document
+    will be added to the `failed_documents` list. The failed documents will have `metadata_extraction_error` and
+    `metadata_extraction_response` in their metadata. These documents can be re-run with the another extractor to
+    extract metadata by using the `metadata_extraction_response` and `metadata_extraction_error` in the prompt.
 
     ```python
     from haystack import Document
@@ -92,16 +93,16 @@ class SebLLMMetadataExtractor:
     ######################
     Example 1:
     entity_types: [organization, person, partnership, financial metric, product, service, industry, investment strategy, market trend]
-    text: Another area of strength is our co-brand issuance. Visa is the primary network partner for eight of the top 
-    10 co-brand partnerships in the US today and we are pleased that Visa has finalized a multi-year extension of 
-    our successful credit co-branded partnership with Alaska Airlines, a portfolio that benefits from a loyal customer 
+    text: Another area of strength is our co-brand issuance. Visa is the primary network partner for eight of the top
+    10 co-brand partnerships in the US today and we are pleased that Visa has finalized a multi-year extension of
+    our successful credit co-branded partnership with Alaska Airlines, a portfolio that benefits from a loyal customer
     base and high cross-border usage.
-    We have also had significant co-brand momentum in CEMEA. First, we launched a new co-brand card in partnership 
-    with Qatar Airways, British Airways and the National Bank of Kuwait. Second, we expanded our strong global 
-    Marriott relationship to launch Qatar's first hospitality co-branded card with Qatar Islamic Bank. Across the 
-    United Arab Emirates, we now have exclusive agreements with all the leading airlines marked by a recent 
+    We have also had significant co-brand momentum in CEMEA. First, we launched a new co-brand card in partnership
+    with Qatar Airways, British Airways and the National Bank of Kuwait. Second, we expanded our strong global
+    Marriott relationship to launch Qatar's first hospitality co-branded card with Qatar Islamic Bank. Across the
+    United Arab Emirates, we now have exclusive agreements with all the leading airlines marked by a recent
     agreement with Emirates Skywards.
-    And we also signed an inaugural Airline co-brand agreement in Morocco with Royal Air Maroc. Now newer digital 
+    And we also signed an inaugural Airline co-brand agreement in Morocco with Royal Air Maroc. Now newer digital
     issuers are equally
     ------------------------
     output:
@@ -165,7 +166,7 @@ class SebLLMMetadataExtractor:
         max_workers: int = 3,
     ):
         """
-        Initializes the SebLLMMetadataExtractor.
+        Initializes the LLMMetadataExtractor.
 
         :param prompt: The prompt to be used for the LLM.
         :param generator_api: The API provider for the LLM. Currently supported providers are:
@@ -193,7 +194,7 @@ class SebLLMMetadataExtractor:
         self.builder = PromptBuilder(prompt, required_variables=variables)
 
         self.raise_on_failure = raise_on_failure
-        self.expected_keys = expected_keys
+        self.expected_keys = expected_keys or []
         self.generator_api = generator_api if isinstance(generator_api, LLMProvider) \
             else LLMProvider.from_str(generator_api)
         self.generator_api_params = generator_api_params or {}
@@ -223,17 +224,6 @@ class SebLLMMetadataExtractor:
         else:
             raise ValueError(f"Unsupported generator API: {generator_api}")
         return generator_class(**generator_api_params)
-
-        # # This works but is potentially brittle and could give confusing error messages to users
-        # try:
-        #     instance = generator_class(**generator_api_params)
-        # except Exception as e:
-        #     data = {
-        #         "type": f"{generator_class.__module__}.{generator_class.__qualname__}",
-        #         "init_parameters": generator_api_params
-        #     }
-        #     instance = generator_class.from_dict(data)
-        # return instance
 
     def warm_up(self):
         """
@@ -325,8 +315,12 @@ class SebLLMMetadataExtractor:
 
         return parsed_metadata
 
-    def _prepare_prompts(self, documents: List[Document], expanded_range: Optional[List[int]] = None) -> List[str]:
-        all_prompts = []
+    def _prepare_prompts(
+        self,
+        documents: List[Document],
+        expanded_range: Optional[List[int]] = None
+    ) -> List[Union[str, None]]:
+        all_prompts: List[Union[str, None]] = []
         for document in documents:
             if not document.content:
                 logger.warning(
@@ -341,7 +335,7 @@ class SebLLMMetadataExtractor:
                 pages = self.splitter.run(documents=[doc_copy])
                 content = ""
                 for idx, page in enumerate(pages["documents"]):
-                    if idx + 1 in self.expanded_range:
+                    if idx + 1 in expanded_range:
                         content += page.content + "\f"
                 doc_copy.content = content
             else:
