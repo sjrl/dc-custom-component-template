@@ -187,7 +187,7 @@ class SebLLMMetadataExtractor:
         ast = SandboxedEnvironment().parse(prompt)
         template_variables = meta.find_undeclared_variables(ast)
         variables = list(template_variables)
-        if len(variables) != 1 and variables[0] != "document":
+        if len(variables) > 1 or variables[0] != "document":
             raise ValueError(
                 f"Prompt must have exactly one variable called 'document'. Found {','.join(variables)} in the prompt."
             )
@@ -395,6 +395,10 @@ class SebLLMMetadataExtractor:
             "metadata_extraction_error" and "metadata_extraction_response" in their metadata. These documents can be
             re-run with the extractor to extract metadata.
         """
+        if len(documents) == 0:
+            logger.warning("No documents provided. Skipping metadata extraction.")
+            return {"documents": [], "failed_documents": []}
+
         expanded_range = self.expanded_range
         if page_range:
             expanded_range = expand_page_range(page_range)
